@@ -1,0 +1,19 @@
+FROM python:3.10
+
+# Устанавливаем только ffmpeg и минимальные зависимости
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ffmpeg \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+# Копируем и устанавливаем зависимости Python
+COPY requirements.txt .
+RUN pip install --no-cache-dir --upgrade pip
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Копируем код
+COPY . .
+
+CMD ["python", "tg_utilits.py"]
+ENV DISPLAY=:99

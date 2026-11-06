@@ -1,0 +1,9 @@
+g4f
+curl_cffi
+telethon
+requests
+phonenumbers
+yt_dlp
+vk_api
+SpeechRecognition==3.17.0
+pyTelegramBotAPI
