@@ -12,16 +12,16 @@ import yt_dlp
 import asyncio
 import requests
 import pathlib, sys
-from vk_api import VkApi
 
-api_id = 23366542
-api_hash = 'c3d29df48b0bb32d564e82b344eba0c8'
-phone_number = '+79787661757'
+api_id = 000000
+api_hash = '0000000'
+phone_number = '+79999999999'
 last_activity = None
 client = Client()
 path = pathlib.Path(sys.argv[0]).parent.resolve()
+voice_active = True
 
-tg = TelegramClient(path / 'florestone4185_session', api_id, api_hash, app_version='4.16.30-vxCUSTOM', system_version='Win11', device_model='ASUS PRO HAH 111')
+tg = TelegramClient(path / 'session', api_id, api_hash, app_version='4.16.30-vxCUSTOM', system_version='Win11', device_model='ASUS PRO HAH 111')
 tg.start(phone=phone_number)
 
 async def is_other_device_active():
@@ -62,6 +62,20 @@ async def on_new_message(event: types.Message):
     
     # Проверяем, что сообщение входящее (не от нас)
     if not event.out:
+
+        if not voice_active:
+            if event.voice:
+                user = await tg.get_entity(event.peer_id)
+                await event.reply(f'{user.first_name}, я не принимаю голосовые сообщения. Пожалуйста, напишите.')
+                await event.delete()
+                return
+            elif event.video_note:
+                user = await tg.get_entity(event.peer_id)
+                await event.reply(f'{user.first_name}, я не принимаю голосовые сообщения. Пожалуйста, напишите.')
+                await event.delete()
+                return
+            else:
+                pass
         # Получаем количество сообщений в диалоге
         messages = await tg.get_messages(event.sender_id, limit=1)
         count = messages.total
@@ -131,8 +145,17 @@ async def on_new_message(event: types.Message):
                 tmp_path = tmp.name
             photo_bytes = await tg.download_profile_photo(user, file=tmp_path)
             await tg.send_file(user, tmp_path, caption=f'Аватарка {user.first_name}', force_document=False)
+        elif event.text.startswith('.voice'):
+            if voice_active == True:
+                await event.reply("Выключили голосовые сообщения от собеседника!")
+                global voice_active
+                voice_active = False
+            else:
+                await event.reply("Включили голосовые сообщения от собеседника!")
+                global voice_active
+                voice_active = True
         elif event.text.startswith('.ai'):
-            response = await client.chat.completions.create([{"role":"user", "content":event.text}], 'gpt-5', CopilotApp, max_tokens=1500, proxy='http://Qh0wG0:eqJZ4z@185.104.148.124:8000')
+            response = await client.chat.completions.create([{"role":"user", "content":event.text}], 'gpt-5', CopilotApp, max_tokens=1500)
             await tg.send_message(event.peer_id, f'Ответ от GPT:\n```\n{response.choices[0].message.content}\n```', parse_mode='Markdown')
         elif event.text.startswith('.convert'):
             import requests
@@ -157,61 +180,6 @@ async def on_new_message(event: types.Message):
                 if key in conversions:
                     result = amount * conversions[key]
                     await event.reply(f'📐 {amount} {from_unit} = {result:.2f} {to_unit}')
-        elif event.text.startswith('.balance'):
-            import requests
-            response = await event.reply(f'Получаю данные от оператора связи...')
-            session = requests.Session()
-            session.proxies = {'http':'http://Qh0wG0:eqJZ4z@185.104.148.124:8000', 'https':"http://Qh0wG0:eqJZ4z@185.104.148.124:8000"}
-            session.headers = {"User-Agent": "Mozilla/5.0"}
-            api = VkApi(token='vk1.a.V_teWPPJxde9ZPF2K5_6DSJPefXeE7K1lMlift2HEZqxLbeq4cv1Oj5opgsG5GfzHLaSx-kLoRdmjzPh25xTkaVV1yC1fB7fYVQprlhz69CjmoTYfPbMRJO8oR9Po4JuQBlYaAWNHj7Ol6w92FvJ3-bxL2Ffm9eRwOx6JL71szkCQs0xBkQoIYSvN7ikw0TDtzzx0de7QdHHtnYFfMvMvg', session=session)
-            methods = api.get_api()
-            peer_id = None
-            try:
-                # Передаем короткое имя без символа '@'
-                resolved = methods.utils.resolveScreenName(screen_name='phoenix7949')
-                if resolved and resolved['type'] == 'group':
-                    group_id = resolved['object_id']  # Это число и будет ID группы
-                    peer_id = -group_id  # Для отправки сообщения в группу ставим минус
-                    print(f"Найден ID группы: {group_id}")
-                    # Теперь можно отправлять сообщение на peer_id
-                else:
-                    print("Группа с таким именем не найдена.")
-            except Exception as e:
-                print(f"Ошибка при поиске группы: {e}")
-            try:
-            # 2. Отправляем сообщение "Баланс"
-                methods.messages.send(
-                    peer_id=peer_id,
-                    message="💰Проверка баланса",
-                    random_id=0  # Уникальный ID для предотвращения дублирования
-                )
-                print(f"✅ Сообщение отправлено в группу {group_id}")
-                await response.edit('⏳ Ожидаю ответ от оператора...')
-                
-                # 3. Ждем ответ (даем время боту оператора ответить)
-                await asyncio.sleep(5)
-                
-                # 4. Получаем последние сообщения от группы
-                messages = methods.messages.getHistory(
-                    peer_id=peer_id,
-                    count=5,  # Берем последние 5 сообщений
-                    rev=0  # 0 - сначала старые, 1 - сначала новые
-                )
-                
-                # 5. Ищем ответ от группы (не наше сообщение)
-                operator_response = None
-                for msg in messages['items']:
-                    # Проверяем, что сообщение от группы (from_id отрицательный)
-                    if msg['from_id'] < 0 and msg['from_id'] == peer_id:
-                        operator_response = msg['text']
-                        break
-                
-                if not operator_response:
-                    await response.edit('❌ Не удалось получить ответ от оператора. Попробуйте позже.')
-                    return
-                await response.edit(operator_response)
-            except Exception as e:
-                print(f'Ошибка: {e}')
         elif event.text.startswith('.recog'):
     # Проверяем, есть ли ответ на голосовое
             if not event.reply_to.reply_to_msg_id:
@@ -556,41 +524,6 @@ async def on_new_message(event: types.Message):
                 
             except Exception as e:
                 await status.edit(f'❌ Что-то пошло не так: {str(e)}')
-        elif event.text.startswith('.gif'):
-            query = event.text[5:].strip()
-            if not query:
-                await event.reply('❌ Введи запрос: `.gif смешной кот`')
-                return
-            
-            status = await event.reply('🔍 Ищу GIF...')
-            
-            try:
-                import requests
-                # GIPHY API (бесплатный)
-                api_key = "YOUR_GIPHY_API_KEY"  # Замени на свой
-                response = requests.get(
-                    f'https://api.giphy.com/v1/gifs/search',
-                    params={
-                        'api_key': api_key,
-                        'q': query,
-                        'limit': 3,
-                        'rating': 'g'
-                    }
-                )
-                
-                if response.status_code == 200:
-                    data = response.json()
-                    if data['data']:
-                        gif_url = data['data'][0]['images']['original']['url']
-                        await tg.send_file(event.chat_id, gif_url, caption=f'🎬 {query}')
-                        await status.delete()
-                    else:
-                        await status.edit('❌ GIF не найдены')
-                else:
-                    await status.edit('❌ Ошибка API')
-                    
-            except Exception as e:
-                await status.edit(f'❌ Ошибка: {str(e)}')
         elif event.text.startswith('.short'):
             import requests
             url = event.text[7:].strip()
