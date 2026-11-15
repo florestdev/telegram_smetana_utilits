@@ -70,6 +70,9 @@ connection_owners = {}
 # {chat_id: datetime} — когда владелец последний раз писал в этот чат
 owner_last_message = {}
 
+# voices. connections
+voices_connections = {}
+
 # {chat_id: datetime} — когда бот последний раз отправлял автоответ в этот чат (антиспам)
 autoreply_last_sent = {}
 
@@ -137,6 +140,19 @@ def maybe_send_autoreply(message: types.Message, conn: str, owner_id: int):
     Проверяет: если владелец молчит > AUTOREPLY_TIMEOUT_MINUTES, и в этом чате
     ещё не отправляли автоответ после последнего сообщения владельца — отправляет.
     """
+
+    if voices_connections.get(message.business_connection_id) == False:
+        if message.voice:
+            bot.send_message(message.chat.id, f'Пользователь запретил отправлять ему голосовые сообщения!', business_connection_id=conn)
+            bot.delete_business_messages(conn, [message.id])
+            return
+        elif message.video_note:
+            bot.send_message(message.chat.id, f'Пользователь запретил отправлять ему голосовые сообщения!', business_connection_id=conn)
+            bot.delete_business_messages(conn, [message.id])
+            return
+        else:
+            pass
+
     chat_id = message.chat.id
     now = datetime.datetime.now(datetime.timezone.utc)
 
@@ -215,6 +231,20 @@ def handle_business_message(message: types.Message):
             except Exception as e:
                 answer = f'❌ Ошибка LLM7: {e}'
             reply_biz(message, f'Ответ от LLM7:\n```\n{answer}\n```', parse_mode='Markdown')
+
+                # ---------- .voice --------
+        elif text.startswith('.voice'):
+            current = voices_connections.get(message.business_connection_id)
+            if current is None:
+                # первый вызов — по умолчанию считаем, что голосовые включены, и выключаем
+                voices_connections[message.business_connection_id] = False
+                reply_biz(message, 'Выключили голосовые сообщения от пользователей.')
+            elif current is False:
+                voices_connections[message.business_connection_id] = True
+                reply_biz(message, 'Включили голосовые сообщения от пользователей.')
+            else:
+                voices_connections[message.business_connection_id] = False
+                reply_biz(message, 'Выключили голосовые сообщения от пользователей.')
 
         # ---------- .convert ----------
         elif text.startswith('.convert'):
