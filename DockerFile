@@ -15,5 +15,5 @@ RUN pip install --no-cache-dir -r requirements_telethon.txt
 # Копируем код
 COPY . .
 
-CMD ["python", "tg_utilits.py"]
+CMD ["python", "tg_utilits_telethon.py"]
 ENV DISPLAY=:99
